@@ -1,31 +1,48 @@
-import matplotlib.pyplot as plt
-import numpy as np
-from sklearn.datasets import load_iris
+import pandas as pd
+from sklearn.compose import ColumnTransformer
 from sklearn.feature_selection import SelectKBest, chi2
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.impute import SimpleImputer
 
-# Load the Iris dataset
-iris = load_iris()
-X, y = iris.data, iris.target
-feature_names = iris.feature_names
+# Assuming train_df is your DataFrame
+train_df = pd.read_csv('train.csv')  # Adjust path as necessary
+X_train = train_df.drop(['PassengerId', 'Survived'], axis=1)
+y_train = train_df['Survived']
 
-# Apply SelectKBest with chi2 to select all features for visualization
-selector = SelectKBest(chi2, k='all')
-selector.fit(X, y)
+numeric_features = X_train.select_dtypes(include=['int64', 'float64']).columns
+categorical_features = X_train.select_dtypes(include=['object']).columns
 
-# Get scores of each feature
-scores = selector.scores_
+numeric_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='median'))
+])
 
-# Plotting
-plt.bar(range(len(feature_names)), scores, color='skyblue')
-plt.xticks(range(len(feature_names)), feature_names, rotation=45)
-plt.xlabel('Features')
-plt.ylabel('Chi2 Score')
-plt.title('Feature Importance using Chi2 Test')
-plt.tight_layout()  # Adjust layout to make room for the rotated x-axis labels
-plt.show()
+categorical_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='constant', fill_value='missing')),
+    ('encoder', OneHotEncoder(handle_unknown='ignore'))
+])
 
-# Identify selected features
-selected_features = [feature_names[i] for i in range(len(selector.get_support())) if selector.get_support()[i]]
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', numeric_transformer, numeric_features),
+        ('cat', categorical_transformer, categorical_features)
+    ])
+
+# Applying SelectKBest after preprocessing
+# Adjust k as necessary. For example, k=10 selects the 10 best features
+feature_selection = Pipeline(steps=[('preprocessor', preprocessor),
+                                    ('selectkbest', SelectKBest(chi2, k=10))])
+
+feature_selection.fit(X_train, y_train)
+
+# Getting support of selected features
+support_mask = feature_selection.named_steps['selectkbest'].get_support()
+
+# Transforming feature names
+all_features = numeric_features.tolist() + \
+               feature_selection.named_steps['preprocessor'].named_transformers_['cat']['encoder'].get_feature_names_out(categorical_features).tolist()
+
+selected_features = [all_features[i] for i in range(len(support_mask)) if support_mask[i]]
 
 print("Selected Features:")
 for feature in selected_features:

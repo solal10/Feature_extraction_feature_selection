@@ -1,17 +1,34 @@
 import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn.datasets import load_iris
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.impute import SimpleImputer
 
-# Load the Iris dataset
-iris = load_iris()
-X = iris.data
-y = iris.target
-feature_names = iris.feature_names
+# Load your dataset
+train_data = pd.read_csv('train.csv')
+
+# Preprocess the dataset
+# Select features - dropping non-numeric columns for simplicity. Adjust as needed.
+features = ['Pclass', 'Age', 'SibSp', 'Parch', 'Fare']
+X = train_data[features]
+
+# Handling missing values - simple strategy for demonstration
+imputer = SimpleImputer(strategy='mean')
+X = imputer.fit_transform(X)
+
+# Standardize the features (important for PCA)
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Target variable
+y = train_data['Survived']
+
+# No direct equivalent to feature_names in this case, creating custom names
+feature_names = features
 
 # Apply PCA and fit to the data
 pca = PCA(n_components=2)
-pca.fit(X)
+pca.fit(X_scaled)
 # Calculate squared loadings for PCA components
 pca_components_squared = pd.DataFrame(pca.components_**2, columns=feature_names, index=['PC1', 'PC2'])
 
